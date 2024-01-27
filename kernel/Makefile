@@ -28,9 +28,9 @@ $(img): $(kernel) $(grub_cfg)
 	parted foo.img mklabel msdos ; \
 	parted foo.img mkpart primary fat32 2048s 30720s ; \
 	parted foo.img set 1 boot on ; \
-	loop0=$$(losetup -f) ; \
+	loop0=$$(sudo losetup -f) ; \
 	sudo losetup $$loop0 foo.img ; \
-	loop1=$$(losetup -f) ; \
+	loop1=$$(sudo losetup -f) ; \
 	sudo losetup $$loop1 foo.img -o 1048576 ; \
 	sudo mkdosfs -F32 -f 2 $$loop1 ; \
 	sudo mount $$loop1 /mnt/fatgrub ; \
