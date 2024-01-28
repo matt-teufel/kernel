@@ -7,6 +7,15 @@ grub_cfg := src/arch/$(arch)/grub.cfg
 assembly_source_files := $(wildcard src/arch/$(arch)/*.asm)
 assembly_object_files := $(patsubst src/arch/$(arch)/%.asm, \
 	build/arch/$(arch)/%.o, $(assembly_source_files))
+kmain_source := src/arch/$(arch)/kmain.c
+kmain_object := $(patsubst src/arch/$(arch)/kmain.c, \
+	build/arch/$(arch)/kmain.o, $(kmain_source))
+
+c_source := $(wildcard src/arch/$(arch)/modules/*.c)
+c_obj := $(patsubst src/arch/$(arch)/modules/%.c, \
+	build/arch/$(arch)/%.o, $(c_source))
+CC := x86_64-elf-gcc
+CFLAGS := -c -g
 
 .PHONY: all clean run img
 
@@ -19,6 +28,12 @@ run: $(img)
 	@qemu-system-x86_64 -drive file=foo.img,format=raw
 
 img: $(img)
+
+kmain: $(kmain_object) $(c_obj)
+	$(CC) $(CFLAGS) $^ -o kmain
+
+$(kmain_object): $(kmain_source)
+	$(CC) $(CFLAGS) $< -o $@
 
 $(img): $(kernel) $(grub_cfg)
 	mkdir -p build/.img/boot/grub ; \
@@ -41,10 +56,14 @@ $(img): $(kernel) $(grub_cfg)
 	sudo losetup -d $$loop1
 
 
-$(kernel): $(assembly_object_files) $(linker_script)
-	@x86_64-elf-ld -n -T $(linker_script) -o $(kernel) $(assembly_object_files)
+$(kernel): $(assembly_object_files) $(linker_script) $(kmain_object) $(c_obj)
+	@x86_64-elf-ld -n -T $(linker_script) -o $(kernel) $(assembly_object_files) $(kmain_object) $(c_obj)
 
 # compile assembly files
 build/arch/$(arch)/%.o: src/arch/$(arch)/%.asm
 	@mkdir -p $(shell dirname $@)
 	@nasm -felf64 $< -o $@
+
+build/arch/$(arch)/%.o: src/arch/$(arch)/modules/%.c
+	@mkdir -p $(shell dirname $@)
+	@$(CC) $(CFLAGS) $< -o $@
