@@ -1,4 +1,5 @@
 #include "vga.h"
+#include "string.h"
 
 static unsigned short *vgaBuff = (unsigned short *)VGA_BASE;
 static int width = 80;
@@ -10,8 +11,8 @@ void VGA_display_char(char c)
 { 
     if (c == '\n') { 
         cursor = (LINE(cursor) + 1) * width;
-        // if(cursor >= width * height)
-        //     scroll();
+        if(cursor >= width * height)
+            scroll();
     } else if (c == '\r') { 
         cursor = LINE(cursor);
     } else { 
@@ -22,9 +23,20 @@ void VGA_display_char(char c)
 }
 
 void VGA_clear() { 
-    return;
+    int i;
+    for (i=0; i< (width* height); i++) {
+        vgaBuff[i] = 0;
+    }
+    cursor = 0;
 }
 
-void VGA_display_str(const char * str) { 
-    return;
+void VGA_display_str(const char * str) {
+    int i;
+    for (i=0; i < strlen(str); i++) { 
+        VGA_display_char(str[i]);
+    }
+}
+
+void scroll() { 
+    memcpy(vgaBuff, (vgaBuff + width), (width * (height-1)));
 }
