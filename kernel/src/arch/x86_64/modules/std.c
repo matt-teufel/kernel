@@ -10,7 +10,27 @@ int printk(const char * fmt, ...) {
             fmt++;
             switch (*fmt) { 
                 case '%': {
-                    print_char(*fmt);
+                    print_uchar('%');
+                    break;
+                }
+                case 'd': {
+                    print_short(va_arg(args, int), 1);
+                    break;
+                }
+                case 'u': { 
+                    print_int(va_arg(args, int), 0);
+                    break;
+                }
+                case 'x': {
+                    print_long_hex(va_arg(args, int), 0);
+                    break;
+                }
+                case 'c': {
+                    print_char(va_arg(args, int));
+                    break;
+                }
+                case 'p': {
+                    print_long_hex((long)va_arg(args,void * ), 0);
                     break;
                 }
                 case 's': { 
@@ -19,13 +39,16 @@ int printk(const char * fmt, ...) {
                 }
                 case 'h': { 
                     short s = va_arg(args, int);
-                    print_short(s);
+                    print_short(s, 1);
                     break;
                 }
                 case 'l': {
                     long l = va_arg(args, long);
-                    print_long_hex(l);
+                    print_long_hex(l, 0);
                     break;
+                }
+                case 'q': {
+                    print_long_hex(va_arg(args, long long), 1);
                 }
 
             }
@@ -38,8 +61,12 @@ int printk(const char * fmt, ...) {
 }
 
 void print_char(char c) { 
-    VGA_display_char(c);
+    if(c < 0) { 
+        print_char('-');
+    }
+    print_uchar(c);
 }
+
 void print_str(const char * str) { 
     VGA_display_str(str);
 }
@@ -47,11 +74,11 @@ void print_uchar(unsigned char c) {
     VGA_display_char(c);
 }
 
-void print_short(short s) {
+void print_short(short s, char signed_flag) {
     char digit;
     char buff[MAX_SHORT] = {0};
     int i= 0;
-    if(s < 0) { 
+    if(signed_flag && s < 0) { 
         print_char('-');
         s = -s;
     }
@@ -73,13 +100,47 @@ void print_short(short s) {
         print_char('0');
     }
 }
-void print_long_hex(long l) {
+
+void print_int(int num, char signed_flag) {
+    char digit;
+    char buff[MAX_INT] = {0};
+    int i= 0;
+    if(signed_flag && num < 0) { 
+        print_char('-');
+        num = -num;
+    }
+    while (num > 0) { 
+        digit = num % 10;
+        buff[i++] = digit + ASCII_NUM_OFFSET;
+        num /= 10;
+    }
+    int flag = 0;
+    for (i = MAX_INT-1; i >= 0; i--){
+        if(buff[i] != 0) { 
+            flag = 1;
+        }
+        if(flag) { 
+            print_char(buff[i]);
+        }
+    }
+    if(!flag) { 
+        print_char('0');
+    }
+}
+
+void print_long_hex(long l, char ll_flag ) {
     char digit;
     int shift;
     int i;
+    char character_count;
+    if (ll_flag) { 
+        character_count = LONG_HEX_CHAR_COUNT * 2;
+    } else { 
+        character_count = LONG_HEX_CHAR_COUNT;
+    }
     print_str("0x");
-    for (i = 0; i < LONG_HEX_CHAR_COUNT; i++) { 
-        shift = (LONG_HEX_CHAR_COUNT - i -1) * HEX_CHAR_SIZE;
+    for (i = 0; i < character_count; i++) { 
+        shift = (character_count - i -1) * HEX_CHAR_SIZE;
         digit = ((l >> shift) & HEX_MASK);
         if(digit < 10) { 
             print_char(digit + ASCII_NUM_OFFSET);

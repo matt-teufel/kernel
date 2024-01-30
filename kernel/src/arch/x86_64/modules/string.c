@@ -21,7 +21,7 @@ void * memcpy(void *dest, const void *src, size_t n) {
 }
 size_t strlen(const char *s)  { 
     size_t c = 0;
-    while(s[c++] != '\0');
+    while(s[++c] != '\0');
     return c;
 }
 char * strcpy(char *dest, const char * src) { 

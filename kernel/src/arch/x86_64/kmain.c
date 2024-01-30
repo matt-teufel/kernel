@@ -22,6 +22,13 @@ int kmain () {
         printk("testing printk with max long: %l\n", l1);
         printk("testing printk with long 0: %l\n", 0x00000000);
         printk("testing printk with other long: %l\n", 0x12344321);
+
+        printk("testing printk with normal char: %c\n", 'a');
+        
+        printk("testing print k with signed decimal %d\n", 65535);
+        printk("testing printk with unsigned int %u\n", 65535);
+        
+        printk("testing printk with a pointer %p\n", &l1);
         asm volatile("hlt");
     }
 }
