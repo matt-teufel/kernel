@@ -15,10 +15,17 @@ void VGA_display_char(char c)
             scroll();
     } else if (c == '\r') { 
         cursor = LINE(cursor);
-    } else { 
+    } else if (c == '\b') {
+        cursor --;
+        vgaBuff[cursor] = (color << 8) | 0;
+    }
+      else { 
         vgaBuff[cursor] = (color << 8) | c;
         if ( (cursor % width) < (width -1))
             cursor++;
+        else {
+            VGA_display_char('\n');
+        }
     }
 }
 
