@@ -30,7 +30,7 @@ run: $(img)
 img: $(img)
 
 kmain: $(kmain_object) $(c_obj)
-	$(CC) $(CFLAGS) $^ -o kmain
+	$(CC) $(CFLAGS) -mno-red-zone $^ -o kmain
 
 $(kmain_object): $(kmain_source)
 	$(CC) $(CFLAGS) $< -o $@
