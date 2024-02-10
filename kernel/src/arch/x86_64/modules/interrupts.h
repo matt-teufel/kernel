@@ -7,7 +7,7 @@
 #define PIC2_COMMAND	PIC2
 #define PIC2_DATA	(PIC2+1)
 
-#define IDT_SIZE 256
+#define NUM_IRQS 256
 
 #define STI()  asm volatile ("sti" ::: "memory")
 #define CLI() asm volatile ("cli" ::: "memory")
@@ -18,8 +18,8 @@ static inline void outb(uint16_t port, uint8_t val);
 void PIC_remap(int offset1, int offset2);
 
 extern void IRQ_init(void);
-extern void IRQ_set_mask(int irq);
-extern void IRQ_clear_mask(int irq);
+extern void IRQ_set_mask(uint8_t irq);
+extern void IRQ_clear_mask(uint8_t irq);
 extern int IRQ_get_mask(int IRQline);
 extern void IRQ_end_of_interrupt(int irq);
 
@@ -45,12 +45,11 @@ struct IDT_descriptor{
     uint64_t base;
 } __attribute__((packed));
 
-struct IRQ_entry { 
+struct IRQ_entry {
+    void * arg; 
     irq_handler_t handler;
-}
+};
 
-#define TO_MASK_UPPER_SHIFT
-#define TO_MASK_MIDDLE ()
 
 #define GDT_OFFSET 8
 #define TRAP_GATE 0xF

@@ -1,9 +1,12 @@
 #include "ps2.h"
 #include "std.h"
 #include <stdint-gcc.h>
+#include "interrupts.h"
 
 char left_shift = 0;
 char right_shift = 0;
+
+char scan_code = '\0';
 
 static inline void outb(uint16_t port, uint8_t val) { 
     asm volatile ( "outb %0, %1" : : "a"(val), "Nd"(port) );
@@ -29,6 +32,12 @@ void ps2_poll_out(void){
     while((status = inb(PS2_STATUS) & PS2_STATUS_INPUT));
 }
 
+void keyboard_input_handler(int interrupt_num, int error_code, void * arg) { 
+    printk("inside kb input handler");
+    scan_code = ps2_poll_read();
+    printk("scan code: %c", scan_code);
+}
+
 
 void ps2_init() { 
     char config;
@@ -52,6 +61,7 @@ void ps2_init() {
     ps2_poll_out();
     outb(PS2_CMD, ENABLE_P1);
     printk("Finished kb init\n");
+    IRQ_set_handler(1, keyboard_input_handler, &scan_code);
 }
 
 char read_kb(void)
