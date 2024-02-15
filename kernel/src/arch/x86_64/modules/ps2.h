@@ -20,6 +20,8 @@
 #define KB_RST 0xFF
 #define SET_QWERTY 0xF1
 
+#define ACK 0xFA
+
 #define SCAN_NULL       0x00
 #define SCAN_ESC        0x01
 #define SCAN_1          0x02
@@ -115,4 +117,5 @@ static char ps2_poll_read(void);
 static inline uint8_t inb(uint16_t port);
 static inline void outb(uint16_t port, uint8_t val);
 extern char read_kb(void);
+extern void enable_kb(void);
 

@@ -27,6 +27,8 @@ clean:
 run: $(img)
 	@qemu-system-x86_64 -drive file=foo.img,format=raw
 
+debug: $(img)
+	@qemu-system-x86_64 -s -drive file=foo.img,format=raw
 img: $(img)
 
 kmain: $(kmain_object) $(c_obj)
@@ -57,12 +59,12 @@ $(img): $(kernel) $(grub_cfg)
 
 
 $(kernel): $(assembly_object_files) $(linker_script) $(kmain_object) $(c_obj)
-	@x86_64-elf-ld -n -T $(linker_script) -o $(kernel) $(assembly_object_files) $(kmain_object) $(c_obj)
+	@x86_64-elf-ld -n -T $(linker_script) -o $(kernel) -g $(assembly_object_files) $(kmain_object) $(c_obj)
 
 # compile assembly files
 build/arch/$(arch)/%.o: src/arch/$(arch)/%.asm
 	@mkdir -p $(shell dirname $@)
-	@nasm -felf64 $< -o $@
+	@nasm -felf64 $< -g -o $@
 
 build/arch/$(arch)/%.o: src/arch/$(arch)/modules/%.c
 	@mkdir -p $(shell dirname $@)

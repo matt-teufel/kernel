@@ -2,11 +2,12 @@
 #include "std.h"
 #include <stdint-gcc.h>
 #include "interrupts.h"
+#include "vga.h"
 
 char left_shift = 0;
 char right_shift = 0;
 
-char scan_code = '\0';
+char kb_input = '\0';
 
 static inline void outb(uint16_t port, uint8_t val) { 
     asm volatile ( "outb %0, %1" : : "a"(val), "Nd"(port) );
@@ -33,40 +34,48 @@ void ps2_poll_out(void){
 }
 
 void keyboard_input_handler(int interrupt_num, int error_code, void * arg) { 
-    printk("inside kb input handler");
-    scan_code = ps2_poll_read();
-    printk("scan code: %c", scan_code);
+    // printk("inside kb input handler\n");
+    uint8_t input = read_kb();
+    if(input != '\0'){
+        VGA_display_char(input);
+    }
+}
+
+void enable_kb(void) { 
+    IRQ_clear_mask(1);
 }
 
 
 void ps2_init() { 
-    char config;
+    uint8_t config;
     outb(PS2_CMD, DISABLE_P1);
     outb(PS2_CMD, DISABLE_P2);
-    printk("about to poll read");
+    // printk("about to poll read");
     config = inb(PS2_STATUS);
-    printk("config before init: %l\n", config);
+    // printk("config before init: %l\n", config);
     config = (config | CFG_ENABLE_IRQ1 | CFG_DISABLE_C2)
-               & ~CFG_DISABLE_C1 & ~CFG_ENABLE_IRQ2;
+               & ~CFG_DISABLE_C1 & ~CFG_ENABLE_IRQ2 & ~(1<<3);
     printk("config after init: %l\n", config);
     ps2_poll_out();
     outb(PS2_CMD, config);
 
     //reset and enable keyboard 
-    printk("initializing kb\n");
+    // printk("initializing kb\n");
     outb(PS2_DATA, KB_RST);
     ps2_poll_out();
-    printk("setting scan code\n");
+    // printk("setting scan code\n");
     outb(PS2_DATA, SET_QWERTY);
     ps2_poll_out();
     outb(PS2_CMD, ENABLE_P1);
     printk("Finished kb init\n");
-    IRQ_set_handler(1, keyboard_input_handler, &scan_code);
+    IRQ_set_handler(IRQ_1, keyboard_input_handler, &kb_input);
 }
 
 char read_kb(void)
 {
-    uint8_t scan_code = ps2_poll_read();
+    // uint8_t scan_code = ps2_poll_read();
+    uint8_t scan_code = inb(PS2_DATA);
+
     // printk("scan code in func %l and shift vals: %u  %u\n", scan_code, left_shift, right_shift);
     switch (scan_code) { 
         case SCAN_A: return (left_shift || right_shift) ? 'A' : 'a';
@@ -117,6 +126,7 @@ char read_kb(void)
         case SCAN_FORWARD_SLASH: return (left_shift || right_shift) ? '?' : '/';
         case SCAN_BACKSLASH: return (left_shift || right_shift) ? '|' : '\\';
         case SCAN_BACKSPACE: return '\b';
+        case SCAN_SPACE: return ' ';
         case SCAN_LEFT_SHIFT: {
             left_shift = 1;
             break;

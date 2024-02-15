@@ -2,15 +2,39 @@
 
 #define PIC1		0x20		/* IO base address for master PIC */
 #define PIC2		0xA0		/* IO base address for slave PIC */
+#define PIC2_NEW_OFFSET 0x28
 #define PIC1_COMMAND	PIC1
 #define PIC1_DATA	(PIC1+1)
 #define PIC2_COMMAND	PIC2
 #define PIC2_DATA	(PIC2+1)
+#define PIC_EOI		0x20
+
+/* reinitialize the PIC controllers, giving them specified vector offsets
+   rather than 8h and 70h, as configured by default */
+ 
+#define ICW1_ICW4	0x01		/* Indicates that ICW4 will be present */
+#define ICW1_SINGLE	0x02		/* Single (cascade) mode */
+#define ICW1_INTERVAL4	0x04		/* Call address interval 4 (8) */
+#define ICW1_LEVEL	0x08		/* Level triggered (edge) mode */
+#define ICW1_INIT	0x10		/* Initialization - required! */
+ 
+#define ICW4_8086	0x01		/* 8086/88 (MCS-80/85) mode */
+#define ICW4_AUTO	0x02		/* Auto (normal) EOI */
+#define ICW4_BUF_SLAVE	0x08		/* Buffered mode/slave */
+#define ICW4_BUF_MASTER	0x0C		/* Buffered mode/master */
+#define ICW4_SFNM	0x10		/* Special fully nested (not) */
+
+#define VO_START 0x20
+#define VO_END 0x30
+ 
+
+#define IRQ_1 (PIC1+1)
 
 #define NUM_IRQS 256
 
-#define STI()  asm volatile ("sti" ::: "memory")
-#define CLI() asm volatile ("cli" ::: "memory")
+extern void CLI();
+extern void STI();
+extern uint8_t are_interrupts_enabled();
 
 static inline void io_wait(void);
 static inline uint8_t inb(uint16_t port);
@@ -24,17 +48,17 @@ extern int IRQ_get_mask(int IRQline);
 extern void IRQ_end_of_interrupt(int irq);
 
 typedef void (*irq_handler_t)(int, int, void*);
-extern void IRQ_set_handler(int irq, irq_handler_t handler, void *arg);
+extern void IRQ_set_handler(uint8_t irq, irq_handler_t handler, void *arg);
 
 struct IDT_entry { 
     uint16_t target_offset_lower;
     uint16_t target_selector;
-    uint8_t reserved2:5;
     uint8_t IST:3;
-    uint8_t P:1;
-    uint8_t DPL:2;
-    uint8_t zero:1;
+    uint8_t reserved2:5;
     uint8_t type:4;
+    uint8_t zero:1; 
+    uint8_t DPL:2;   
+    uint8_t P:1;
     uint16_t target_offset_middle;
     uint32_t target_offset_upper;
     uint32_t reserved1;
@@ -51,7 +75,7 @@ struct IRQ_entry {
 };
 
 
-#define GDT_OFFSET 8
+#define GDT_OFFSET 0x08
 #define TRAP_GATE 0xF
 #define INT_GATE 0xE
 

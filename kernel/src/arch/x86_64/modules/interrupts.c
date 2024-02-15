@@ -6,19 +6,42 @@
 struct IDT_entry IDT[NUM_IRQS];
 struct IRQ_entry IRQ[NUM_IRQS];
 
-void irq_dispatch(int interrupt_num) { 
-	printk("irq dispatch with num %i\n", interrupt_num);
+uint8_t enabled = 1;
+
+void CLI() { 
+	enabled = 0;
+	asm volatile ("cli");
+}
+
+void STI() { 
+	enabled = 1;
+	asm volatile ("sti");
+}
+
+uint8_t are_interrupts_enabled() {
+	return enabled;
+}
+
+void irq_dispatch(long interrupt_num) { 
     if (interrupt_num < 0 || interrupt_num > NUM_IRQS) { 
-        printk("Invalid Interrupt number %i\n", interrupt_num);
+        printk("Invalid Interrupt number %l\n", interrupt_num);
         return;
     }
 	struct IRQ_entry ent = IRQ[interrupt_num];
     if (ent.handler == NULL) { 
-		printk("function handler was null");
-		return;
+		if (interrupt_num != 0x20) { 
+			//clock is 20 so print non clock here 
+			printk("function handler was null for int num: %l\n", interrupt_num);
+		}
+	} else { 
+		// printk("calling function handler for int num: %l\n", interrupt_num);
+		ent.handler(0, 0, ent.arg); // make this the error num and int num	
 	}
-	printk("calling function handler\n");
-	ent.handler(0, 0, ent.arg); // make this the error num and int num
+	if (interrupt_num >= VO_START && interrupt_num <= VO_END){
+		IRQ_end_of_interrupt(interrupt_num - VO_START);	
+	}
+
+	
 }
 
 static inline void outb(uint16_t port, uint8_t val)
@@ -45,21 +68,6 @@ static inline void io_wait(void)
     outb(0x80, 0);
 }
 
-/* reinitialize the PIC controllers, giving them specified vector offsets
-   rather than 8h and 70h, as configured by default */
- 
-#define ICW1_ICW4	0x01		/* Indicates that ICW4 will be present */
-#define ICW1_SINGLE	0x02		/* Single (cascade) mode */
-#define ICW1_INTERVAL4	0x04		/* Call address interval 4 (8) */
-#define ICW1_LEVEL	0x08		/* Level triggered (edge) mode */
-#define ICW1_INIT	0x10		/* Initialization - required! */
- 
-#define ICW4_8086	0x01		/* 8086/88 (MCS-80/85) mode */
-#define ICW4_AUTO	0x02		/* Auto (normal) EOI */
-#define ICW4_BUF_SLAVE	0x08		/* Buffered mode/slave */
-#define ICW4_BUF_MASTER	0x0C		/* Buffered mode/master */
-#define ICW4_SFNM	0x10		/* Special fully nested (not) */
- 
 /*
 arguments:
 	offset1 - vector offset for master PIC
@@ -97,27 +105,28 @@ void PIC_remap(int offset1, int offset2)
 
 void IRQ_init(void) { 
     int i;
-    struct IDT_entry ent;
-    PIC_remap(PIC1, PIC2);
+    struct IDT_entry* ent;
+    PIC_remap(PIC1, PIC2_NEW_OFFSET);
     for (i = 0; i < NUM_IRQS; i++){ 
-        ent = IDT[i];
-        ent.target_selector = GDT_OFFSET; //figure out if this is right
-        ent.reserved2 = 0;
-        ent.IST = 0; //change stacks for double faults
-        ent.P = 1;
-        ent.zero = 0;
-        ent.DPL = 0;
-        ent.type = INT_GATE;
-        ent.reserved1 = 0;
+        ent = &(IDT[i]);
+        ent->target_selector = GDT_OFFSET; //figure out if this is right
+        ent->reserved2 = 0;
+        ent->IST = 0; //change stacks for double faults
+        ent->P = 1;
+        ent->zero = 0;
+        ent->DPL = 0;
+        ent->type = INT_GATE;
+        ent->reserved1 = 0;
     }
-    init_IRQ_entries();
+    init_IRQ_entries(); // set entry handlers for each IDT entry
     loadIDT();
+	printk("done initializing interrupts\n");
 }
 
 void loadIDT() {
     struct IDT_descriptor idtd;
 
-    idtd.limit = sizeof(IDT) - 1;
+    idtd.limit = sizeof(IDT);
     idtd.base = (uint64_t)&IDT;
 
     asm volatile ("lidt %0" : : "m" (idtd));
@@ -160,17 +169,30 @@ void IRQ_clear_mask(uint8_t IRQline) {
 
 int IRQ_get_mask(int IRQline)
 {
-    return 0;
+	uint16_t port;
+    uint8_t value;
+ 
+    if(IRQline < 8) {
+        port = PIC1_DATA;
+    } else {
+        port = PIC2_DATA;
+        IRQline -= 8;
+    }
+    value = inb(port) & (1 << IRQline);
+    return value;
 }
 void IRQ_end_of_interrupt(int irq)
 { 
-    return;
+	// printk("sending EOI to %d\n", irq);
+    if(irq >= 8)
+		outb(PIC2_COMMAND,PIC_EOI);
+	outb(PIC1_COMMAND,PIC_EOI);
 }
 
-void IRQ_set_handler(int irq, irq_handler_t handler, void *arg)
+void IRQ_set_handler(uint8_t irq, irq_handler_t handler, void *arg)
 {    
     IRQ[irq].handler = handler;
-	IRQ[irq].handler = arg;
+	IRQ[irq].arg = arg;
 }
 
 void init_IRQ_entries() {

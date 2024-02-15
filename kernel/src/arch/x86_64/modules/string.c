@@ -8,15 +8,14 @@ void * memset(void *dst, int c, size_t n) {
     }
     return dst;
 }
-void * memcpy(void *dest, const void *src, size_t n) {
-    int i;
-    unsigned char * d = (unsigned char *)dest;
-    unsigned char * s = (unsigned char *)src;
-    for (i = 0; i < n; i++){
-        d[i] = s[i];
-        i++;
+void *memcpy(void *dest, const void *src, size_t count) {
+    unsigned char *d = dest;
+    const unsigned char *s = src;
+    
+    while (count-- > 0) {
+        *d++ = *s++;
     }
-    d[i] = '\0';
+    
     return dest;
 }
 size_t strlen(const char *s)  { 
