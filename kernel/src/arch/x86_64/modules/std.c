@@ -1,6 +1,10 @@
 #include "std.h"
 #include <stdarg.h>
 #include "vga.h"
+#include <stdint-gcc.h>
+#include "ser.h"
+#include "string.h"
+
 
 int printk(const char * fmt, ...) { 
     va_list args;
@@ -54,6 +58,7 @@ int printk(const char * fmt, ...) {
             }
         } else { 
             VGA_display_char(*fmt);
+            SER_write(fmt, 1);
         }
         fmt++;
      }
@@ -69,9 +74,15 @@ void print_char(char c) {
 
 void print_str(const char * str) { 
     VGA_display_str(str);
+    int len = strlen(str);
+    int offset = 0;
+    do {
+        offset += SER_write(str+offset,len-offset);
+    } while(offset != len);
 }
 void print_uchar(unsigned char c) {
     VGA_display_char(c);
+    SER_write(&c, 1);
 }
 
 void print_short(short s, char signed_flag) {
@@ -151,3 +162,21 @@ void print_long_hex(long l, char ll_flag ) {
     }
 }
 
+void outb(uint16_t port, uint8_t val)
+{
+    __asm__ volatile ( "outb %b0, %w1" : : "a"(val), "Nd"(port) : "memory");
+    /* There's an outb %al, $imm8 encoding, for compile-time constant port numbers that fit in 8b. (N constraint).
+     * Wider immediate constants would be truncated at assemble-time (e.g. "i" constraint).
+     * The  outb  %al, %dx  encoding is the only option for all other cases.
+     * %1 expands to %dx because  port  is a uint16_t.  %w1 could be used if we had the port number a wider C type */
+}
+
+uint8_t inb(uint16_t port)
+{
+    uint8_t ret;
+    __asm__ volatile ( "inb %w1, %b0"
+                   : "=a"(ret)
+                   : "Nd"(port)
+                   : "memory");
+    return ret;
+}

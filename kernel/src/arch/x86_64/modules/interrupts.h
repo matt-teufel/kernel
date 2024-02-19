@@ -28,17 +28,21 @@
 #define VO_END 0x30
  
 
-#define IRQ_1 (PIC1+1)
+#define IRQ1 (PIC1+1)
+#define IRQ4 (PIC1+4)
 
 #define NUM_IRQS 256
+
+#define PIC_READ_IRR                0x0a    /* OCW3 irq ready next CMD read */
+#define PIC_READ_ISR                0x0b    /* OCW3 irq service next CMD read */
 
 extern void CLI();
 extern void STI();
 extern uint8_t are_interrupts_enabled();
+extern uint16_t pic_get_irr(void);
+extern uint16_t pic_get_isr(void);
 
 static inline void io_wait(void);
-static inline uint8_t inb(uint16_t port);
-static inline void outb(uint16_t port, uint8_t val);
 void PIC_remap(int offset1, int offset2);
 
 extern void IRQ_init(void);

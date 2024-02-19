@@ -1,3 +1,5 @@
+#include <stdint-gcc.h>
+
 #define MAX_SHORT 5
 #define MAX_INT 10
 #define HEX_MASK 0xF
@@ -14,3 +16,7 @@ extern void print_uchar(unsigned char);
 extern void print_short(short, char);
 extern void print_long_hex(long, char);
 extern void print_int(int, char);
+
+extern void outb(uint16_t port, uint8_t val);
+
+extern uint8_t inb(uint16_t port);

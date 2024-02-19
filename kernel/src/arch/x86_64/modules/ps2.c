@@ -9,18 +9,6 @@ char right_shift = 0;
 
 char kb_input = '\0';
 
-static inline void outb(uint16_t port, uint8_t val) { 
-    asm volatile ( "outb %0, %1" : : "a"(val), "Nd"(port) );
-}
-
-static inline uint8_t inb(uint16_t port) { 
-    uint8_t ret;
-    asm volatile ( "inb %1, %0"
-                    : "=a"(ret)
-                    : "Nd"(port) );
-    return ret;
-}
-
 static char ps2_poll_read(void) {
     char status = inb(PS2_STATUS);
     while (!(status & PS2_STATUS_OUTPUT)) 
@@ -37,7 +25,8 @@ void keyboard_input_handler(int interrupt_num, int error_code, void * arg) {
     // printk("inside kb input handler\n");
     uint8_t input = read_kb();
     if(input != '\0'){
-        VGA_display_char(input);
+        // VGA_display_char(input);
+        printk("%c", input);
     }
 }
 
@@ -55,7 +44,7 @@ void ps2_init() {
     // printk("config before init: %l\n", config);
     config = (config | CFG_ENABLE_IRQ1 | CFG_DISABLE_C2)
                & ~CFG_DISABLE_C1 & ~CFG_ENABLE_IRQ2 & ~(1<<3);
-    printk("config after init: %l\n", config);
+    // printk("config after init: %l\n", config);
     ps2_poll_out();
     outb(PS2_CMD, config);
 
@@ -67,8 +56,8 @@ void ps2_init() {
     outb(PS2_DATA, SET_QWERTY);
     ps2_poll_out();
     outb(PS2_CMD, ENABLE_P1);
-    printk("Finished kb init\n");
-    IRQ_set_handler(IRQ_1, keyboard_input_handler, &kb_input);
+    // printk("Finished kb init\n");
+    IRQ_set_handler(IRQ1, keyboard_input_handler, &kb_input);
 }
 
 char read_kb(void)
@@ -127,6 +116,7 @@ char read_kb(void)
         case SCAN_BACKSLASH: return (left_shift || right_shift) ? '|' : '\\';
         case SCAN_BACKSPACE: return '\b';
         case SCAN_SPACE: return ' ';
+        case SCAN_ENTER: return (left_shift || right_shift) ? '\n' : '\r';
         case SCAN_LEFT_SHIFT: {
             left_shift = 1;
             break;

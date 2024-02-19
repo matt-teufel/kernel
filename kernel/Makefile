@@ -25,10 +25,10 @@ clean:
 	@rm -r build
 
 run: $(img)
-	@qemu-system-x86_64 -drive file=foo.img,format=raw
+	@qemu-system-x86_64 -drive format=raw,file=foo.img -serial stdio
 
 debug: $(img)
-	@qemu-system-x86_64 -s -drive file=foo.img,format=raw
+	@qemu-system-x86_64 -s -drive format=raw,file=foo.img -serial stdio
 img: $(img)
 
 kmain: $(kmain_object) $(c_obj)

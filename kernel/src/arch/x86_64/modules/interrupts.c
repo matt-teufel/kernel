@@ -29,38 +29,17 @@ void irq_dispatch(long interrupt_num) {
     }
 	struct IRQ_entry ent = IRQ[interrupt_num];
     if (ent.handler == NULL) { 
-		if (interrupt_num != 0x20) { 
-			//clock is 20 so print non clock here 
-			printk("function handler was null for int num: %l\n", interrupt_num);
-		}
+		printk("function handler was null for int num: %l\n", interrupt_num);
+		
 	} else { 
 		// printk("calling function handler for int num: %l\n", interrupt_num);
-		ent.handler(0, 0, ent.arg); // make this the error num and int num	
+		ent.handler(interrupt_num, 0, ent.arg); // make this the error num and int num	
 	}
 	if (interrupt_num >= VO_START && interrupt_num <= VO_END){
 		IRQ_end_of_interrupt(interrupt_num - VO_START);	
 	}
 
 	
-}
-
-static inline void outb(uint16_t port, uint8_t val)
-{
-    __asm__ volatile ( "outb %b0, %w1" : : "a"(val), "Nd"(port) : "memory");
-    /* There's an outb %al, $imm8 encoding, for compile-time constant port numbers that fit in 8b. (N constraint).
-     * Wider immediate constants would be truncated at assemble-time (e.g. "i" constraint).
-     * The  outb  %al, %dx  encoding is the only option for all other cases.
-     * %1 expands to %dx because  port  is a uint16_t.  %w1 could be used if we had the port number a wider C type */
-}
-
-static inline uint8_t inb(uint16_t port)
-{
-    uint8_t ret;
-    __asm__ volatile ( "inb %w1, %b0"
-                   : "=a"(ret)
-                   : "Nd"(port)
-                   : "memory");
-    return ret;
 }
 
 static inline void io_wait(void)
@@ -111,7 +90,15 @@ void IRQ_init(void) {
         ent = &(IDT[i]);
         ent->target_selector = GDT_OFFSET; //figure out if this is right
         ent->reserved2 = 0;
-        ent->IST = 0; //change stacks for double faults
+		if (i == GP) { 
+			ent->IST = 1;
+		} else if (i == DF) { 
+			ent->IST = 2;
+		} else if (i == PF) { 
+			ent->IST = 3;
+		} else { 
+        	ent->IST = 0; 
+		}
         ent->P = 1;
         ent->zero = 0;
         ent->DPL = 0;
@@ -120,7 +107,8 @@ void IRQ_init(void) {
     }
     init_IRQ_entries(); // set entry handlers for each IDT entry
     loadIDT();
-	printk("done initializing interrupts\n");
+	IRQ_set_mask(0);
+	// printk("done initializing interrupts\n");
 }
 
 void loadIDT() {
@@ -193,6 +181,29 @@ void IRQ_set_handler(uint8_t irq, irq_handler_t handler, void *arg)
 {    
     IRQ[irq].handler = handler;
 	IRQ[irq].arg = arg;
+}
+
+ 
+/* Helper func */
+static uint16_t __pic_get_irq_reg(int ocw3)
+{
+    /* OCW3 to PIC CMD to get the register values.  PIC2 is chained, and
+     * represents IRQs 8-15.  PIC1 is IRQs 0-7, with 2 being the chain */
+    outb(PIC1_COMMAND, ocw3);
+    outb(PIC2_COMMAND, ocw3);
+    return (inb(PIC2_COMMAND) << 8) | inb(PIC1_COMMAND);
+}
+ 
+/* Returns the combined value of the cascaded PICs irq request register */
+uint16_t pic_get_irr(void)
+{
+    return __pic_get_irq_reg(PIC_READ_IRR);
+}
+ 
+/* Returns the combined value of the cascaded PICs in-service register */
+uint16_t pic_get_isr(void)
+{
+    return __pic_get_irq_reg(PIC_READ_ISR);
 }
 
 void init_IRQ_entries() {
