@@ -18,7 +18,7 @@ int printk(const char * fmt, ...) {
                     break;
                 }
                 case 'd': {
-                    print_short(va_arg(args, int), 1);
+                    print_int(va_arg(args, int), 1);
                     break;
                 }
                 case 'u': { 
@@ -34,7 +34,7 @@ int printk(const char * fmt, ...) {
                     break;
                 }
                 case 'p': {
-                    print_long_hex((long)va_arg(args,void * ), 0);
+                    print_long_hex((long long)va_arg(args,void * ), 1);
                     break;
                 }
                 case 's': { 
@@ -47,8 +47,14 @@ int printk(const char * fmt, ...) {
                     break;
                 }
                 case 'l': {
-                    long l = va_arg(args, long);
-                    print_long_hex(l, 0);
+                    if(*(++fmt) == 'l') { 
+                        long long l = va_arg(args, long long);
+                        print_long_hex(l, 1);
+                    } else {
+                        --fmt;
+                        long l = va_arg(args, long);
+                        print_long_hex(l, 0);
+                    }
                     break;
                 }
                 case 'q': {
