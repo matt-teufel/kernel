@@ -71,43 +71,42 @@ void splitRegion(struct SectionHeader * section) {
     struct Region * prev_region =rlh;
     uint64_t addr = section->address;
     uint64_t section_end_addr = addr + section->size;
+    printk("ELF section before alignment addr: %ll and ends at: %ll\n", addr, section_end_addr);
+    addr -= (addr % PAGE_SIZE);
+    section_end_addr += (PAGE_SIZE- (section_end_addr%PAGE_SIZE));
     // section_end_addr += (PAGE_SIZE - (section_end_addr % PAGE_SIZE));
     printk("section start: %ll and section end: %ll\n", addr, section_end_addr);
-    while (current_region !=NULL) { 
-        if ((addr > (uint64_t)current_region->start) && (addr < (uint64_t)current_region->end)) { 
-            current_region->end = (void *)addr;
+    // while (current_region != NULL) { 
+    //     if (((section_end_addr > (uint64_t)current_region->start) && (section_end_addr < (uint64_t)current_region->end))) {
+    //         // need to make a new region connection the section end address to the current end 
+    //         if ( ((uint64_t)current_region->end > section_end_addr)
+    //             && ((((uint64_t)current_region->end) - section_end_addr) > PAGE_SIZE)) {
+    //                 appendRegion((void*)section_end_addr, current_region->end);
+    //         }
+    //     }
+    //     if ((addr > (uint64_t)(current_region->start)) && (addr < (uint64_t)(current_region->end))){ 
+    //         current_region->end = (void *)addr;
+    //     }
+    //     if (((uint64_t)current_region->end - (uint64_t)current_region->start) < PAGE_SIZE) {
+    //         prev_region->next = current_region->next;
+    //     } else {
+    //         prev_region = current_region;
+    //     }
+    //     current_region = current_region->next;
+    // }
+
+    while ( current_region != NULL) { 
+        if (addr >= (uint64_t)current_region->start && section_end_addr <= (uint64_t)current_region->end) { 
+            if (((uint64_t)current_region->end - section_end_addr) > PAGE_SIZE) { 
+                appendRegion((void*)section_end_addr, current_region->end);
+            }
+            current_region->end = (void*)addr;
         }
-        if ((section_end_addr > (uint64_t)current_region->start) && (section_end_addr < (uint64_t)current_region->end)) {
-            current_region->start = (void *)section_end_addr;
+        if(((uint64_t)current_region->end - (uint64_t)current_region->start) < PAGE_SIZE) { 
+            prev_region->next = current_region->next;
+        } else {
+            prev_region = current_region;
         }
-        // if ((addr >= (uint64_t)(current_region->start)) && (addr <= (uint64_t)(current_region->end))
-        // || ((section_end_addr >= (uint64_t)(current_region->start)) && (section_end_addr <= (uint64_t)(current_region->end)))) {
-        //     // need to make a new region connection the section end address to the current end 
-        //     // uint64_t new_start = section_end_addr + (PAGE_SIZE -(((uint64_t)current_region->end - section_end_addr) % PAGE_SIZE));
-        //     // if (((uint64_t)current_region->end - new_start) > PAGE_SIZE && new_start < (uint64_t)current_region->end) {
-        //     //     appendRegion((char*)new_start, current_region->end);
-        //     // }
-
-
-        //     current_region->start = (char *)(section_end_addr + PAGE_SIZE);
-
-
-        //     // if (section_end_addr < (uint64_t)current_region->end) {
-        //     //     appendRegion((char *)section_end_addr, current_region->end);
-        //     // }
-        //     // // // adjust current end region to be the start of the previously made new region 
-        //     // // uint64_t new_end = addr - ((addr - (uint64_t)current_region->start) % PAGE_SIZE);
-        //     // if(addr < (((uint64_t)current_region->start) + PAGE_SIZE)) { 
-        //     //     prev_region->next = current_region->next; // get rid of region if too small 
-        //     // } else {
-        //     //     current_region->end = (char *)addr;
-        //     // }
-
-
-
-        //     return;
-        // }
-        prev_region = current_region;
         current_region = current_region->next;
     }
 }
@@ -162,7 +161,7 @@ void process_tag_entries(uint32_t tag_address)
                     offset+=sizeof(struct MemoryMapInfo);
                     mmi++;
                 }
-                printk("====Printing Regions at the end of MM=====\n");
+                // printk("====Printing Regions at the end of MM=====\n");
                 printRegions();
                 break;
             }
@@ -200,25 +199,25 @@ void * MMU_pf_alloc(void)
 { 
     uint64_t * return_addr;
     if (frame_list.count == 0 && all_regions_allocated) { 
-        printk("I am screwed and out of memory\n");
+        printk("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\nI am screwed and out of memory\n\n\nvvvvvvvvvvvvvvvvvvvvvvvvvvv\n");
         return NULL;
     } else if (frame_list.count > 0) {
-        printk("allocating from freed list\n");
+        // printk("allocating from freed list\n");
         return_addr = (uint64_t*)frame_list.next;
         frame_list.next = frame_list.next->next;
         frame_list.count--;
     } else {
         // printk("current region start: %ll, and end %ll, current addr: %ll\n", cur_reg->start, cur_reg->end, cur_reg->current_address);
-        if ((cur_reg->current_address + PAGE_SIZE) < (uint64_t)(cur_reg->end)) {
+        if ((cur_reg->current_address + PAGE_SIZE) <= (uint64_t)(cur_reg->end)) {
             return_addr = (uint64_t*)(cur_reg->current_address);
             cur_reg->current_address += PAGE_SIZE;
         } else {
             if(cur_reg->next == NULL) {
-                printk("All regions have been allocated\n");
+                // printk("All regions have been allocated\n");
                 all_regions_allocated = 1;
                 return NULL;
             } else {
-                printk("moving to the next region\n");
+                // printk("moving to the next region\n");
                 cur_reg = cur_reg->next;
                 return MMU_pf_alloc();
             }
@@ -271,12 +270,13 @@ void test_full_allocation(void) {
     int i;
     while (f != NULL) { 
         addr = (uint64_t)f;
-        printk("copying for addr: %ll and frame address: %ll\n", addr, (uint64_t)f);
+        // printk("copying for addr: %ll and frame address: %ll\n", addr, (uint64_t)f);
         for (i=0;i<(PAGE_SIZE/sizeof(uint64_t));i++){
             *f++ = addr;
         }
         f = (uint64_t *)MMU_pf_alloc();
     }
+
 
     struct Region * cr = rlh->next;
     while(cr != NULL) { 
@@ -284,9 +284,7 @@ void test_full_allocation(void) {
         uint64_t * current_address = (uint64_t *)cr->start;
         uint64_t current_address_int = (uint64_t)cr->start;
         uint64_t end = (uint64_t)cr->end;
-        // uint64_t * current_address = (uint64_t *)0x1000;
-        // uint64_t current_address_int = (uint64_t)0x1000;
-        // uint64_t end = (uint64_t)0x2000;
+        end -= end % PAGE_SIZE;
         int i;
         while (current_address_int < end) { 
             for (i=0; i<(PAGE_SIZE/sizeof(uint64_t)); i++){
@@ -299,6 +297,4 @@ void test_full_allocation(void) {
         cr = cr->next;
     }
     printk("Page Frames stress test passed without error\n");
-
-
 }
