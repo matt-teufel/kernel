@@ -6,11 +6,34 @@
 
 static struct Region rl[MAX_REGIONS]; // memory region list 
 static struct Region * rlh = &rl[0]; // head
-uint8_t current_region_index = 1;
+struct Region * cur_reg = NULL;
 static uint16_t idx = 0;
 static uint8_t all_regions_allocated = 0;
 
 static struct Frame frame_list;
+
+void printRegions() 
+{ 
+    struct Region * cr = rlh->next;
+    printk("========Printing Regions==========\n");
+    while (cr != NULL) {
+        printk("memory region start: %ll and end: %ll\n", (uint64_t)cr->start, (uint64_t)cr->end);
+        cr = cr->next;
+    }
+    printk("====================================\n");
+}
+
+// void validateRegions() 
+// {
+//     struct Region * cr = rlh;
+//     while( cr->next != NULL) {
+//         uint64_t diff = ((uint64_t)(cr->next->end) - (uint64_t)(cr->next->start));
+//         if (diff < (20*PAGE_SIZE) || diff > MAX_64) {
+//             cr->next = cr->next->next;
+//         }
+//         cr = cr->next;
+//     }
+// }
 
 void initRegionList() 
 {
@@ -25,38 +48,66 @@ void initRegionList()
 
 void appendRegion(void * start, void *end)
 {
-    if (idx < (MAX_REGIONS-1)) {
-        rl[idx].next = &rl[idx+1];
-        idx++;
-        rl[idx].start = start;
-        rl[idx].end = end;
-        rl[idx].current_address = start;
-        printk("memory region start: %ll and end: %ll\n", rl[idx].start, rl[idx].end);
-    } else {
-        printk("============\n\n\nERRROR TOO MANY MEM REGIONS IN PFS\n\n\n\n========");
+    struct Region * current_region = rlh;
+    while(current_region->next != NULL) {
+        current_region = current_region->next;
     }
+    idx++;
+    current_region->next = &rl[idx];
+    if(start == NULL) { 
+        rl[idx].start = (uint64_t*)PAGE_TABLE_BASE;
+        rl[idx].current_address = PAGE_TABLE_BASE;
+    } else {
+            rl[idx].start = start;
+            rl[idx].current_address = (uint64_t)start;
+    }
+    rl[idx].end = end;
+    // printk("memory region start: %ll and end: %ll\n", rl[idx].start, rl[idx].end);
+
 }
 
 void splitRegion(struct SectionHeader * section) {
     struct Region * current_region = rlh->next;
+    struct Region * prev_region =rlh;
     uint64_t addr = section->address;
-    uint64_t section_end_addr;
+    uint64_t section_end_addr = addr + section->size;
+    // section_end_addr += (PAGE_SIZE - (section_end_addr % PAGE_SIZE));
+    printk("section start: %ll and section end: %ll\n", addr, section_end_addr);
     while (current_region !=NULL) { 
-        if ((addr > (uint64_t)(current_region->start)) && (addr < (uint64_t)(current_region->end))) {
-            // printk("splitting region start %ll , end: %ll, split: %ll\n", (uint64_t)current_region->start, (uint64_t)current_region->end, addr);
-            // section_end_addr = addr + section->size;
-            // printk("Split addr: %ll\n", addr);
-            section_end_addr = addr + PAGE_SIZE;
-            // printk("section size%ll\n", section->size );
-            // printk("section end addr: %ll\n", section_end_addr);
-            appendRegion((char*)(section_end_addr), current_region->end);
-            if((uint64_t)(current_region->end) > addr) {
-                current_region->end = (char *)(addr);
-                printk("changing the end of memory region: %ll and end: %ll\n", current_region->start, current_region->end);
-
-            }
-            return;
+        if ((addr > (uint64_t)current_region->start) && (addr < (uint64_t)current_region->end)) { 
+            current_region->end = (void *)addr;
         }
+        if ((section_end_addr > (uint64_t)current_region->start) && (section_end_addr < (uint64_t)current_region->end)) {
+            current_region->start = (void *)section_end_addr;
+        }
+        // if ((addr >= (uint64_t)(current_region->start)) && (addr <= (uint64_t)(current_region->end))
+        // || ((section_end_addr >= (uint64_t)(current_region->start)) && (section_end_addr <= (uint64_t)(current_region->end)))) {
+        //     // need to make a new region connection the section end address to the current end 
+        //     // uint64_t new_start = section_end_addr + (PAGE_SIZE -(((uint64_t)current_region->end - section_end_addr) % PAGE_SIZE));
+        //     // if (((uint64_t)current_region->end - new_start) > PAGE_SIZE && new_start < (uint64_t)current_region->end) {
+        //     //     appendRegion((char*)new_start, current_region->end);
+        //     // }
+
+
+        //     current_region->start = (char *)(section_end_addr + PAGE_SIZE);
+
+
+        //     // if (section_end_addr < (uint64_t)current_region->end) {
+        //     //     appendRegion((char *)section_end_addr, current_region->end);
+        //     // }
+        //     // // // adjust current end region to be the start of the previously made new region 
+        //     // // uint64_t new_end = addr - ((addr - (uint64_t)current_region->start) % PAGE_SIZE);
+        //     // if(addr < (((uint64_t)current_region->start) + PAGE_SIZE)) { 
+        //     //     prev_region->next = current_region->next; // get rid of region if too small 
+        //     // } else {
+        //     //     current_region->end = (char *)addr;
+        //     // }
+
+
+
+        //     return;
+        // }
+        prev_region = current_region;
         current_region = current_region->next;
     }
 }
@@ -111,6 +162,8 @@ void process_tag_entries(uint32_t tag_address)
                     offset+=sizeof(struct MemoryMapInfo);
                     mmi++;
                 }
+                printk("====Printing Regions at the end of MM=====\n");
+                printRegions();
                 break;
             }
             case 9: {
@@ -125,7 +178,7 @@ void process_tag_entries(uint32_t tag_address)
                 break;
             }
             default : {
-                printk("type is something else: %d\n", tag_header->type);
+                // printk("type is something else: %d\n", tag_header->type);
                 break;
             }
         }
@@ -137,37 +190,40 @@ void process_tag_entries(uint32_t tag_address)
         tag_header_int = add_bytes(tag_header_int, byte_offset);
         tag_header = (struct TagHeaderVar *)tag_header_int;
     }
+    // validateRegions();
+    printRegions();
+    cur_reg = rlh->next;
     //tag type 0 and size 8 is termination of list 
 }
 
 void * MMU_pf_alloc(void)
 { 
-    void * return_addr;
+    uint64_t * return_addr;
     if (frame_list.count == 0 && all_regions_allocated) { 
         printk("I am screwed and out of memory\n");
-        return (void *)NO_FRAMES_AVAILABLE;
+        return NULL;
     } else if (frame_list.count > 0) {
         printk("allocating from freed list\n");
-        return_addr = frame_list.next;
+        return_addr = (uint64_t*)frame_list.next;
         frame_list.next = frame_list.next->next;
         frame_list.count--;
     } else {
-        struct Region * current_region = &(rl[current_region_index]);
-        // printk("current region start: %ll, and end %ll\n", current_region->start, current_region->end);
-        if ((current_region->current_address + PAGE_SIZE) < current_region->end) {
-            return_addr = current_region->current_address;
-            current_region->current_address = (void *)((uint64_t)current_region->current_address + PAGE_SIZE);
+        // printk("current region start: %ll, and end %ll, current addr: %ll\n", cur_reg->start, cur_reg->end, cur_reg->current_address);
+        if ((cur_reg->current_address + PAGE_SIZE) < (uint64_t)(cur_reg->end)) {
+            return_addr = (uint64_t*)(cur_reg->current_address);
+            cur_reg->current_address += PAGE_SIZE;
         } else {
-            if(current_region->next == NULL) {
+            if(cur_reg->next == NULL) {
                 printk("All regions have been allocated\n");
                 all_regions_allocated = 1;
+                return NULL;
             } else {
-                current_region_index++;
+                printk("moving to the next region\n");
+                cur_reg = cur_reg->next;
+                return MMU_pf_alloc();
             }
-            return MMU_pf_alloc();
         }
     }
-    // printk("return addr: %ll\n", return_addr);
     return return_addr;
 }
 
@@ -207,27 +263,42 @@ void test_basic_alloc_and_free(void) {
 }
 
 
-// struct TestingLL {
-//     uint64_t address;
-//     struct TestingLL * next;
-// };
+
 void test_full_allocation(void) {
-    // struct TestingLL ll;
-    // struct TestingLL * current_test_node = &ll;
     printk("Stress Test Full Allocation\n");
-    uint8_t * f = MMU_pf_alloc();
-    uint64_t addr = (uint64_t)f;
-    while (addr != NO_FRAMES_AVAILABLE) { 
-        int offset = 0;
-        while (offset < PAGE_SIZE) { 
-            memcpy(f+offset, &addr, 8);
-            offset += 8;
-        }
-        f = MMU_pf_alloc();
+    uint64_t * f= (uint64_t *)MMU_pf_alloc();
+    uint64_t addr;
+    int i;
+    while (f != NULL) { 
         addr = (uint64_t)f;
-        printk(" %ll ", addr);
+        printk("copying for addr: %ll and frame address: %ll\n", addr, (uint64_t)f);
+        for (i=0;i<(PAGE_SIZE/sizeof(uint64_t));i++){
+            *f++ = addr;
+        }
+        f = (uint64_t *)MMU_pf_alloc();
     }
-    printk("Completed writing all Page Frames with their address value\n");
+
+    struct Region * cr = rlh->next;
+    while(cr != NULL) { 
+        printk("iterating through each block in region with start: %ll and end %ll\n", cr->start, cr->end);
+        uint64_t * current_address = (uint64_t *)cr->start;
+        uint64_t current_address_int = (uint64_t)cr->start;
+        uint64_t end = (uint64_t)cr->end;
+        // uint64_t * current_address = (uint64_t *)0x1000;
+        // uint64_t current_address_int = (uint64_t)0x1000;
+        // uint64_t end = (uint64_t)0x2000;
+        int i;
+        while (current_address_int < end) { 
+            for (i=0; i<(PAGE_SIZE/sizeof(uint64_t)); i++){
+                if(*current_address++ != current_address_int) { 
+                    printk("There is an error, the current address value is actually: %ll, but should be %ll, i: %d\n", *current_address, current_address_int, i);
+                }
+            }
+            current_address_int = (uint64_t)current_address;
+        }
+        cr = cr->next;
+    }
+    printk("Page Frames stress test passed without error\n");
 
 
 }

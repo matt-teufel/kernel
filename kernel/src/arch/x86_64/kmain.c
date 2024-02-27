@@ -22,7 +22,7 @@ int kmain (uint32_t tag_addr) {
         printk("tag address %l\n", tag_addr);
         // while(loop);
         process_tag_entries(tag_addr);
-        test_basic_alloc_and_free();
+        // test_basic_alloc_and_free();
         test_full_allocation();
         STI();
         const char * test1 = "This is the first test string\n";

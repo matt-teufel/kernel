@@ -83,7 +83,7 @@ struct ELFSymbols {
 struct Region { 
     void * start, *end;
     struct Region * next;
-    void * current_address;
+    uint64_t current_address;
 };
 
 struct Frame { 
@@ -94,7 +94,8 @@ struct Frame {
 
 #define MAX_REGIONS 256
 #define PAGE_SIZE 4096
-#define NO_FRAMES_AVAILABLE 0xFFFFFFFFFFFFFFFF
+#define PAGE_TABLE_BASE 0x1000
+#define MAX_64 0xFFFFFFFFFFFF0000
 
 extern void test_basic_alloc_and_free(void);
 extern void test_full_allocation(void);
