@@ -2,7 +2,7 @@
 
 extern void * MMU_pf_alloc(void);
 extern void MMU_pf_free(void *pf);
-void process_tag_entries(uint32_t tag_address);
+struct Region * process_tag_entries(uint32_t tag_address);
 
 struct TagHeaderFixed { 
     uint32_t size;

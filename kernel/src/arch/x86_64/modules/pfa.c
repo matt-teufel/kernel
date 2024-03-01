@@ -71,11 +71,11 @@ void splitRegion(struct SectionHeader * section) {
     struct Region * prev_region =rlh;
     uint64_t addr = section->address;
     uint64_t section_end_addr = addr + section->size;
-    printk("ELF section before alignment addr: %ll and ends at: %ll\n", addr, section_end_addr);
+    // printk("ELF section before alignment addr: %ll and ends at: %ll\n", addr, section_end_addr);
     addr -= (addr % PAGE_SIZE);
     section_end_addr += (PAGE_SIZE- (section_end_addr%PAGE_SIZE));
     // section_end_addr += (PAGE_SIZE - (section_end_addr % PAGE_SIZE));
-    printk("section start: %ll and section end: %ll\n", addr, section_end_addr);
+    // printk("section start: %ll and section end: %ll\n", addr, section_end_addr);
     // while (current_region != NULL) { 
     //     if (((section_end_addr > (uint64_t)current_region->start) && (section_end_addr < (uint64_t)current_region->end))) {
     //         // need to make a new region connection the section end address to the current end 
@@ -121,7 +121,7 @@ uint64_t add_bytes(uint64_t address, int bytes) {
     return new_address;
 }
 
-void process_tag_entries(uint32_t tag_address) 
+struct Region * process_tag_entries(uint32_t tag_address) 
 {
     uint32_t byte_offset;
     initRegionList();
@@ -133,23 +133,23 @@ void process_tag_entries(uint32_t tag_address)
     while (!(tag_header->type == 0 && tag_header->size ==8)) {
         switch(tag_header->type) {
             case 4: {
-                printk("Memory Info\n");
+                // printk("Memory Info\n");
                 break;
             }
             case 5: {
-                printk("Boot Device\n");
+                // printk("Boot Device\n");
                 break;
             }
             case 1: { 
-                printk("Boot CLI\n");
+                // printk("Boot CLI\n");
                 break;
             }
             case 2: {
-                printk("Boot Loader\n");
+                // printk("Boot Loader\n");
                 break;
             }
             case 6: {
-                printk("Memory Map\n");
+                // printk("Memory Map\n");
                 uint32_t offset = 0;
                 struct MemoryMap * mm = (struct MemoryMap *)tag_header;
                 struct MemoryMapInfo * mmi = (struct MemoryMapInfo *)(tag_header_int + sizeof(struct MemoryMap));
@@ -162,11 +162,11 @@ void process_tag_entries(uint32_t tag_address)
                     mmi++;
                 }
                 // printk("====Printing Regions at the end of MM=====\n");
-                printRegions();
+                // printRegions();
                 break;
             }
             case 9: {
-                printk("ELF Symbols\n");
+                // printk("ELF Symbols\n");
                 struct ELFSymbols * es = (struct ELFSymbols *)tag_header;
                 struct SectionHeader * section = (struct SectionHeader *)(tag_header_int + sizeof(struct ELFSymbols));
                 int i;
@@ -190,13 +190,15 @@ void process_tag_entries(uint32_t tag_address)
         tag_header = (struct TagHeaderVar *)tag_header_int;
     }
     // validateRegions();
-    printRegions();
+    // printRegions();
     cur_reg = rlh->next;
+    return cur_reg;
     //tag type 0 and size 8 is termination of list 
 }
 
 void * MMU_pf_alloc(void)
 { 
+    printk("MMU_pf_alloc call\n");
     uint64_t * return_addr;
     if (frame_list.count == 0 && all_regions_allocated) { 
         printk("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\nI am screwed and out of memory\n\n\nvvvvvvvvvvvvvvvvvvvvvvvvvvv\n");
