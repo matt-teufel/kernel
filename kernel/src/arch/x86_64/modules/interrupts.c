@@ -22,12 +22,16 @@ uint8_t are_interrupts_enabled() {
 	return enabled;
 }
 
-void irq_dispatch(long interrupt_num) { 
+void irq_dispatch(uint64_t interrupt_num, uint64_t error_code ) { 
     if (interrupt_num < 0 || interrupt_num > NUM_IRQS) { 
         printk("Invalid Interrupt number %l\n", interrupt_num);
         return;
     }
 	struct IRQ_entry ent = IRQ[interrupt_num];
+	if (interrupt_num == PF) { 
+		printk("This is a page fauilt with error code: %ll\n", error_code);
+		asm volatile("hlt");
+	}
     if (ent.handler == NULL) { 
 		printk("function handler was null for int num: %l\n", interrupt_num);
 		

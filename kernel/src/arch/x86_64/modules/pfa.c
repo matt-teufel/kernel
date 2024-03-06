@@ -23,17 +23,18 @@ void printRegions()
     printk("====================================\n");
 }
 
-// void validateRegions() 
-// {
-//     struct Region * cr = rlh;
-//     while( cr->next != NULL) {
-//         uint64_t diff = ((uint64_t)(cr->next->end) - (uint64_t)(cr->next->start));
-//         if (diff < (20*PAGE_SIZE) || diff > MAX_64) {
-//             cr->next = cr->next->next;
-//         }
-//         cr = cr->next;
-//     }
-// }
+void validateRegions() 
+{
+    struct Region * cr = rlh;
+    while( cr->next != NULL) {
+        uint64_t diff = ((uint64_t)(cr->next->end) - (uint64_t)(cr->next->start));
+        if (diff < (20*PAGE_SIZE) || diff > MAX_64) {
+            cr->next = cr->next->next;
+        } else {
+            cr = cr->next;
+        }
+    }
+}
 
 void initRegionList() 
 {
@@ -189,8 +190,8 @@ struct Region * process_tag_entries(uint32_t tag_address)
         tag_header_int = add_bytes(tag_header_int, byte_offset);
         tag_header = (struct TagHeaderVar *)tag_header_int;
     }
-    // validateRegions();
-    // printRegions();
+    validateRegions();
+    printRegions();
     cur_reg = rlh->next;
     return cur_reg;
     //tag type 0 and size 8 is termination of list 
@@ -198,7 +199,7 @@ struct Region * process_tag_entries(uint32_t tag_address)
 
 void * MMU_pf_alloc(void)
 { 
-    printk("MMU_pf_alloc call\n");
+    // printk("MMU_pf_alloc call\n");
     uint64_t * return_addr;
     if (frame_list.count == 0 && all_regions_allocated) { 
         printk("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\n\nI am screwed and out of memory\n\n\nvvvvvvvvvvvvvvvvvvvvvvvvvvv\n");

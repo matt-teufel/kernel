@@ -26,6 +26,9 @@ int kmain (uint32_t tag_addr) {
         // test_full_allocation();
         // test_basic_alloc_and_free();
         pt_init(physical_regions);
+        printk("page table initialized, going to enable it\n");
+        test_table();
+        enable_paging();
 
         STI();
         enable_kb();

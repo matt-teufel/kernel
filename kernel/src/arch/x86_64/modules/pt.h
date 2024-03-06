@@ -1,25 +1,27 @@
+#include <stdint-gcc.h>
+
 struct PML { 
-    long long reserved1:3;
-    long long PWT:1;
-    long long PCD:1;
-    long long reserved2:7;
-    long long base_address:40;
-    long long MBZ: 12;
+    uint64_t reserved1:3;
+    uint64_t PWT:1;
+    uint64_t PCD:1;
+    uint64_t reserved2:7;
+    uint64_t base_address:40;
+    uint64_t MBZ: 12;
 };
 
 struct PMLE {
-    long long P:1;
-    long long RW:1;
-    long long US:1;
-    long long PWT:1;
-    long long PCD:1;
-    long long A:1;
-    long long IGN:1;
-    long long MBZ:2;
-    long long AVL:3;
-    long long PDP_Pointer_Base:40;
-    long long availbale:11;
-    long long NX:1;
+    uint64_t P:1;
+    uint64_t RW:1;
+    uint64_t US:1;
+    uint64_t PWT:1;
+    uint64_t PCD:1;
+    uint64_t A:1;
+    uint64_t IGN:1;
+    uint64_t MBZ:2;
+    uint64_t AVL:3;
+    uint64_t PDP_Pointer_Base:40;
+    uint64_t availbale:11;
+    uint64_t NX:1;
 };
 
 struct PML_Entries {
@@ -27,50 +29,50 @@ struct PML_Entries {
 };
 
 struct PDPE { 
-    long long P:1;
-    long long RW:1;
-    long long US:1;
-    long long PWT:1;
-    long long PCD:1;
-    long long A:1;
-    long long IGN:1;
-    long long MBZ:2;
-    long long AVL:3;
-    long long PDP_Base:40;
-    long long availbale:11;
-    long long NX:1;
+    uint64_t P:1;
+    uint64_t RW:1;
+    uint64_t US:1;
+    uint64_t PWT:1;
+    uint64_t PCD:1;
+    uint64_t A:1;
+    uint64_t IGN:1;
+    uint64_t MBZ:2;
+    uint64_t AVL:3;
+    uint64_t PDP_Base:40;
+    uint64_t availbale:11;
+    uint64_t NX:1;
 };
 
 struct PDE {
-    long long P:1;
-    long long RW:1;
-    long long US:1;
-    long long PWT:1;
-    long long PCD:1;
-    long long A:1;
-    long long IGN1:1;
-    long long MBZ: 1;
-    long long IGN2:1;
-    long long AVL:3;
-    long long Base_Address:40;
-    long long available:11;
-    long long NX:1;
+    uint64_t P:1;
+    uint64_t RW:1;
+    uint64_t US:1;
+    uint64_t PWT:1;
+    uint64_t PCD:1;
+    uint64_t A:1;
+    uint64_t IGN1:1;
+    uint64_t MBZ: 1;
+    uint64_t IGN2:1;
+    uint64_t AVL:3;
+    uint64_t Base_Address:40;
+    uint64_t available:11;
+    uint64_t NX:1;
 };
 
 struct PTE {
-    long long P:1;
-    long long RW:1;
-    long long US:1;
-    long long PWT:1;
-    long long PCD:1;
-    long long A:1;
-    long long D:1;
-    long long PAT:1;
-    long long G:1;
-    long long AVL:3;
-    long long Base_Address:40;
-    long long available:11;
-    long long NX:1;
+    uint64_t P:1;
+    uint64_t RW:1;
+    uint64_t US:1;
+    uint64_t PWT:1;
+    uint64_t PCD:1;
+    uint64_t A:1;
+    uint64_t D:1;
+    uint64_t PAT:1;
+    uint64_t G:1;
+    uint64_t AVL:3;
+    uint64_t Base_Address:40;
+    uint64_t available:11;
+    uint64_t NX:1;
 };
 
 
@@ -80,14 +82,16 @@ extern void *MMU_alloc_pages(int num);
 extern void MMU_free_page(void *);
 extern void MMU_free_pages(void *, int num);
 extern void * pt_init(struct Region * memory_region);
+extern void enable_paging();
+extern void test_table();
 
 // struct VirtualAddress {
-//     long long offset: 12;
-//     long long L1: 9;
-//     long long L2: 9;
-//     long long L3: 9;
-//     long long L4: 9;
-//     long long avail: 16;
+//     uint64_t offset: 12;
+//     uint64_t L1: 9;
+//     uint64_t L2: 9;
+//     uint64_t L3: 9; 
+//     uint64_t L4: 9;
+//     uint64_t avail: 16;
 // };
 
 #define VMASK 0x1FF
