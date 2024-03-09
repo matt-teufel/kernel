@@ -145,7 +145,7 @@ void print_int(int num, char signed_flag) {
     }
 }
 
-void print_long_hex(long l, char ll_flag ) {
+void print_long_hex(long long l, char ll_flag ) {
     char digit;
     int shift;
     int i;

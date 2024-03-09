@@ -5,17 +5,18 @@
 #include <stddef.h>
 #include "std.h"
 
-uint64_t heap_vaddr = KHEAP_START;
-struct PML_Entries * ktable;
+static uint64_t heap_vaddr = KHEAP_START;
+static struct PML_Entries * ktable;
 
 
 void * create_new_table(void * parent) {
     struct PTE * p = (struct PTE *)parent;
-    void * new_page = MMU_pf_alloc();
-    memset(new_page, 0, PAGE_SIZE);
+    uint64_t * new_page = MMU_pf_alloc();
     p->Base_Address = (uint64_t)new_page >> BASE_ADDRESS_SHIFT;
     p->P=1;
     p->AVL=1;
+    memset(new_page, 0, PAGE_SIZE);
+    return new_page;
 }
 
 uint64_t virtual_to_physical(uint64_t vaddr, struct PML_Entries * pml_entries) { 
@@ -24,7 +25,6 @@ uint64_t virtual_to_physical(uint64_t vaddr, struct PML_Entries * pml_entries) {
     struct PDPE * pdpe;
     struct PDE * pde;
     struct PTE * pte;
-    void * new_page;
 
     uint64_t l4_idx = (vaddr >>L4_SHIFT) & VMASK;
     pmle = &(pml_entries->entries[l4_idx]);
@@ -53,6 +53,7 @@ uint64_t virtual_to_physical(uint64_t vaddr, struct PML_Entries * pml_entries) {
     if (pte->P == 0) {
         return 0;
     }
+    // printk("vaddr: %ll to physical addr: %ll\n", vaddr, (pte->Base_Address << BASE_ADDRESS_SHIFT));
     return pte->Base_Address << BASE_ADDRESS_SHIFT;
 }
 
@@ -63,7 +64,6 @@ void put_vaddr(uint64_t vaddr, struct PML_Entries * pml_entries) {
     struct PDPE * pdpe;
     struct PDE * pde;
     struct PTE * pte;
-    void * new_page;
 
     uint64_t l4_idx = (vaddr >>L4_SHIFT) & VMASK;
     pmle = &(pml_entries->entries[l4_idx]);
@@ -97,20 +97,17 @@ void put_vaddr(uint64_t vaddr, struct PML_Entries * pml_entries) {
     pte->Base_Address = vaddr >> BASE_ADDRESS_SHIFT;
 }
 
-void validate_id_map(struct Region * memory_region, struct PML_Entries * pml)
+void validate_id_map(struct PML_Entries * pml)
 {
-    while(memory_region != NULL) { 
-        uint64_t addr = (uint64_t)memory_region->start;
-        uint64_t end = (uint64_t)memory_region->end;
-        while(addr < end) { 
-            // printk("initializing for %ll\n", addr);
-            if(virtual_to_physical(addr, pml) != addr) {
-                printk("ERROR: physical addr :%ll does not have an entry in pml table\n", addr);
-            }
-            addr += PAGE_SIZE;
+    uint64_t addr = 0x1000;
+    uint64_t end_addr = 0x7E00000;
+    while(addr <= end_addr) { 
+        if(virtual_to_physical(addr, pml) != addr) {
+            printk("ERROR physical address %ll not in the id map\n", addr);
         }
-        memory_region = memory_region->next;
+        addr += PAGE_SIZE;
     }
+    printk("ID map validated\n");
 }
 
 void * pt_init(struct Region * memory_region) { 
@@ -118,18 +115,17 @@ void * pt_init(struct Region * memory_region) {
     memset(pml_entries, 0, PAGE_SIZE); 
     ktable = pml_entries;
     // struct Region * head = memory_region; 
-    put_vaddr(0x0, pml_entries);
-    while(memory_region != NULL) { 
-        uint64_t addr = (uint64_t)memory_region->start;
-        uint64_t end = (uint64_t)memory_region->end;
-        while(addr <= end) { 
-            // printk("initializing for %ll\n", addr);
-            put_vaddr(addr, pml_entries);
-            addr += PAGE_SIZE;
-        }
+    put_vaddr(0, pml_entries);
+    uint64_t addr = (uint64_t)memory_region->start;
+    while(memory_region->next != NULL) { 
         memory_region = memory_region->next;
     }
-    // validate_id_map(head, pml_entries);
+    uint64_t end_addr = (uint64_t)memory_region->end;
+    while(addr <= end_addr) { 
+        put_vaddr(addr, pml_entries);
+        addr += PAGE_SIZE;
+    }
+    validate_id_map(ktable);
 }
 
 void enable_paging() { 
@@ -144,7 +140,6 @@ void *MMU_alloc_page() {
     struct PDPE * pdpe;
     struct PDE * pde;
     struct PTE * pte;
-    void * new_page;
 
     uint64_t l4_idx = (vaddr >>L4_SHIFT) & VMASK;
     pmle = &(pml_entries->entries[l4_idx]);
@@ -176,8 +171,10 @@ void *MMU_alloc_page() {
     if(pte->P == 0) { 
         // printk("allocating a new page in the page table\n");
         create_new_table(pte);
+        // printk("new table was created at: %ll\n", pte->Base_Address);
+        // printk("new page address is: %ll\n", (pte->Base_Address << BASE_ADDRESS_SHIFT));
     }
-    heap_vaddr += sizeof(PAGE_SIZE);
+    heap_vaddr += PAGE_SIZE;
     return (void *)vaddr;
 }
 void *MMU_alloc_pages(int num)
@@ -197,7 +194,6 @@ void MMU_free_page(void * vaddr) {
     struct PDPE * pdpe;
     struct PDE * pde;
     struct PTE * pte;
-    void * new_page;
     uint64_t vaddr_int = (uint64_t)vaddr;
 
     uint64_t l4_idx = (vaddr_int >>L4_SHIFT) & VMASK;
@@ -222,7 +218,6 @@ void MMU_free_page(void * vaddr) {
 
     if(pde->P == 0) {
         printk("no l2 entry\n");
-
         return;
     }
 
@@ -250,6 +245,18 @@ void MMU_free_pages(void *vaddr, int num) {
 void test_table() {
     printk("testing the table simple\n");
     uint64_t * page1 = MMU_alloc_page();
+    *page1 = 0x1111111111111111;
     uint64_t * page2 = MMU_alloc_page();
-    printk("page 1");
+    *page2 = 0x2222222222222222;
+    uint64_t * page3 = MMU_alloc_page();
+    *page3 = 0x3333333333333333;
+    uint64_t casted = (uint64_t)page1;
+    printk("page 1 value: %ll", *page1);
+
+    // uint64_t * page2 = MMU_alloc_page();
+    // (uint64_t)page1;
+    // printk("virtual to physical %ll\n", virtual_to_physical((uint64_t)page1, ktable));
+    // printk("page 1: %ll\n", page1);
+    // printk("page 2: %ll\n", (uint64_t)page2);
+    // virtual_to_physical(KHEAP_START, ktable );
 }

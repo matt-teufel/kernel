@@ -72,30 +72,8 @@ void splitRegion(struct SectionHeader * section) {
     struct Region * prev_region =rlh;
     uint64_t addr = section->address;
     uint64_t section_end_addr = addr + section->size;
-    // printk("ELF section before alignment addr: %ll and ends at: %ll\n", addr, section_end_addr);
     addr -= (addr % PAGE_SIZE);
     section_end_addr += (PAGE_SIZE- (section_end_addr%PAGE_SIZE));
-    // section_end_addr += (PAGE_SIZE - (section_end_addr % PAGE_SIZE));
-    // printk("section start: %ll and section end: %ll\n", addr, section_end_addr);
-    // while (current_region != NULL) { 
-    //     if (((section_end_addr > (uint64_t)current_region->start) && (section_end_addr < (uint64_t)current_region->end))) {
-    //         // need to make a new region connection the section end address to the current end 
-    //         if ( ((uint64_t)current_region->end > section_end_addr)
-    //             && ((((uint64_t)current_region->end) - section_end_addr) > PAGE_SIZE)) {
-    //                 appendRegion((void*)section_end_addr, current_region->end);
-    //         }
-    //     }
-    //     if ((addr > (uint64_t)(current_region->start)) && (addr < (uint64_t)(current_region->end))){ 
-    //         current_region->end = (void *)addr;
-    //     }
-    //     if (((uint64_t)current_region->end - (uint64_t)current_region->start) < PAGE_SIZE) {
-    //         prev_region->next = current_region->next;
-    //     } else {
-    //         prev_region = current_region;
-    //     }
-    //     current_region = current_region->next;
-    // }
-
     while ( current_region != NULL) { 
         if (addr >= (uint64_t)current_region->start && section_end_addr <= (uint64_t)current_region->end) { 
             if (((uint64_t)current_region->end - section_end_addr) > PAGE_SIZE) { 

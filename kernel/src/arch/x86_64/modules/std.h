@@ -14,7 +14,7 @@ extern void print_char(char);
 extern void print_str(const char *);
 extern void print_uchar(unsigned char);
 extern void print_short(short, char);
-extern void print_long_hex(long, char);
+extern void print_long_hex(long long, char);
 extern void print_int(int, char);
 
 extern void outb(uint16_t port, uint8_t val);
