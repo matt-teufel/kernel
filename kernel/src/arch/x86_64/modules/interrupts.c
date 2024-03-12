@@ -2,9 +2,15 @@
 #include "std.h"
 #include <stdint-gcc.h>
 #include <stddef.h>
+#include "pfa.h"
+#include "pt.h"
+#include "string.h"
+
 
 struct IDT_entry IDT[NUM_IRQS];
 struct IRQ_entry IRQ[NUM_IRQS];
+static struct TSS tss;
+extern uint64_t gdt64[5];
 
 uint8_t enabled = 1;
 
@@ -22,22 +28,37 @@ uint8_t are_interrupts_enabled() {
 	return enabled;
 }
 
+void tss_init() {
+	int index = 2;
+	struct TSS_Descriptor * tssd = (struct TSS_Descriptor*)(&gdt64[index]);
+
+	memset(&tss, 0, sizeof(struct TSS));
+	uint64_t stack = (uint64_t)MMU_pf_alloc();
+	tss.ist1 = stack + PAGE_SIZE - sizeof(uint64_t);
+
+	uint64_t ba = (uint64_t)(&tss);
+	memset(tssd,0,sizeof(struct TSS_Descriptor));
+	tssd->flags = 0x4089;
+	tssd->segment_limit0 = sizeof(struct TSS);
+	tssd->base_address0 = ba & 0xFFFF;
+	tssd->base_address1 = (ba >> 16) & 0xFF;
+	tssd->base_address2 = (ba >> 24) & 0xFF;
+	tssd->base_address3 = ba >> 32;
+	index *= sizeof(uint64_t);
+	asm volatile ("ltr %0" :: "m" (index));
+}
+
 void irq_dispatch(uint64_t interrupt_num, uint64_t error_code ) { 
     if (interrupt_num < 0 || interrupt_num > NUM_IRQS) { 
         printk("Invalid Interrupt number %l\n", interrupt_num);
         return;
     }
 	struct IRQ_entry ent = IRQ[interrupt_num];
-	if (interrupt_num == PF) { 
-		printk("This is a page fauilt with error code: %ll\n", error_code);
-		asm volatile("hlt");
-	}
     if (ent.handler == NULL) { 
 		printk("function handler was null for int num: %l\n", interrupt_num);
-		
 	} else { 
 		// printk("calling function handler for int num: %l\n", interrupt_num);
-		ent.handler(interrupt_num, 0, ent.arg); // make this the error num and int num	
+		ent.handler(interrupt_num, error_code, ent.arg); // make this the error num and int num	
 	}
 	if (interrupt_num >= VO_START && interrupt_num <= VO_END){
 		IRQ_end_of_interrupt(interrupt_num - VO_START);	
@@ -94,14 +115,10 @@ void IRQ_init(void) {
         ent = &(IDT[i]);
         ent->target_selector = GDT_OFFSET; //figure out if this is right
         ent->reserved2 = 0;
-		if (i == GP) { 
+		if (i == GP || i == DF || i == PF) { 
 			ent->IST = 1;
-		} else if (i == DF) { 
-			ent->IST = 2;
-		} else if (i == PF) { 
-			ent->IST = 3;
 		} else { 
-        	ent->IST = 0; 
+            ent->IST = 0; 
 		}
         ent->P = 1;
         ent->zero = 0;
@@ -112,6 +129,7 @@ void IRQ_init(void) {
     init_IRQ_entries(); // set entry handlers for each IDT entry
     loadIDT();
 	IRQ_set_mask(0);
+	tss_init();
 	// printk("done initializing interrupts\n");
 }
 

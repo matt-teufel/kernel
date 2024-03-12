@@ -51,7 +51,7 @@ extern void IRQ_clear_mask(uint8_t irq);
 extern int IRQ_get_mask(int IRQline);
 extern void IRQ_end_of_interrupt(int irq);
 
-typedef void (*irq_handler_t)(int, int, void*);
+typedef void (*irq_handler_t)(int, uint64_t, void*);
 extern void IRQ_set_handler(uint8_t irq, irq_handler_t handler, void *arg);
 
 struct IDT_entry { 
@@ -88,12 +88,40 @@ struct IRQ_entry {
 #define NP 11
 #define STE 12 
 #define GP 13
-#define PF 14
+#define PF 0x0E
 
 
 void init_IRQ_entries();
 void loadIDT();
 void set_IDT_entry(int idx, uintptr_t entryPoint);
+
+struct TSS_Descriptor { 
+    uint16_t segment_limit0;
+    uint16_t base_address0;
+    uint8_t base_address1;
+    uint16_t flags;
+    uint8_t base_address2;
+    uint32_t base_address3;
+    uint32_t resv;
+}__attribute__((packed));
+
+struct TSS {
+    uint32_t resv0;
+    uint64_t rsp0;
+    uint64_t rsp1;
+    uint64_t rsp2;
+    uint64_t resv1;
+    uint64_t ist1;
+    uint64_t ist2;
+    uint64_t ist3;
+    uint64_t ist4;
+    uint64_t ist5;
+    uint64_t ist6;
+    uint64_t ist7;
+    uint64_t resv2;
+    uint16_t rsv3;
+    uint16_t io;
+}__attribute__((packed));
 
 
 extern void irq_entry_0();

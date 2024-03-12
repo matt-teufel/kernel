@@ -84,6 +84,7 @@ extern void MMU_free_pages(void *, int num);
 extern void * pt_init(struct Region * memory_region);
 extern void enable_paging();
 extern void test_table();
+void test_page_fault();
 
 // struct VirtualAddress {
 //     uint64_t offset: 12;

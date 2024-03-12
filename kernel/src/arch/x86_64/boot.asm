@@ -1,4 +1,5 @@
 global start
+global gdt64
 extern long_mode_start
 
 section .text
@@ -148,6 +149,11 @@ gdt64:
     dq 0 ; zero entry
 .code: equ $ - gdt64 ; new
     dq (1<<43) | (1<<44) | (1<<47) | (1<<53) ; code segment
+    dq 0
+    dq 0 
+    dq 0
+    dq 0
+
 
 .pointer:
     dw $ - gdt64 - 1

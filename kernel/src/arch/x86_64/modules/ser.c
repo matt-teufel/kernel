@@ -46,7 +46,7 @@ void hw_write(struct State * s) {
 }
 
 
-void serial_handler(int interrupt_num, int error_code, void * arg) 
+void serial_handler(int interrupt_num, uint64_t error_code, void * arg) 
 {
    // printk("serial handler\n");
    uint8_t status = (inb(PORT+2) > 1) & IIR_MASK;

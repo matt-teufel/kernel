@@ -3,6 +3,7 @@
 #include "string.h"
 #include <stdint-gcc.h>
 #include <stddef.h>
+#include "interrupts.h"
 #include "std.h"
 
 static uint64_t heap_vaddr = KHEAP_START;
@@ -14,7 +15,8 @@ void * create_new_table(void * parent) {
     uint64_t * new_page = MMU_pf_alloc();
     p->Base_Address = (uint64_t)new_page >> BASE_ADDRESS_SHIFT;
     p->P=1;
-    p->AVL=1;
+    p->AVL=0;
+    p->RW=1;
     memset(new_page, 0, PAGE_SIZE);
     return new_page;
 }
@@ -68,7 +70,7 @@ void put_vaddr(uint64_t vaddr, struct PML_Entries * pml_entries) {
     uint64_t l4_idx = (vaddr >>L4_SHIFT) & VMASK;
     pmle = &(pml_entries->entries[l4_idx]);
     if (pmle->P == 0) { 
-        printk("id map creating new l3 table\n");
+        // printk("id map creating new l3 table\n");
         create_new_table(pmle);
     }
 
@@ -76,7 +78,7 @@ void put_vaddr(uint64_t vaddr, struct PML_Entries * pml_entries) {
     pdpe = (struct PDPE*)((pmle->PDP_Pointer_Base << BASE_ADDRESS_SHIFT) & BASE_ADDRESS_MASK);
     pdpe += l3_idx;
     if (pdpe->P == 0) {
-        printk("id map creating new l2 table\n");
+        // printk("id map creating new l2 table\n");
         create_new_table(pdpe);
     }
 
@@ -85,7 +87,7 @@ void put_vaddr(uint64_t vaddr, struct PML_Entries * pml_entries) {
     pde += l2_idx;
 
     if(pde->P == 0) {
-        printk("id map creating new l1 table for addr: %ll\n", vaddr);
+        // printk("id map creating new l1 table for addr: %ll\n", vaddr);
         create_new_table(pde);
     }
 
@@ -94,6 +96,7 @@ void put_vaddr(uint64_t vaddr, struct PML_Entries * pml_entries) {
     pte += pt_idx;
     pte->P = 1;
     pte->AVL = 1;
+    pte->RW = 1;
     pte->Base_Address = vaddr >> BASE_ADDRESS_SHIFT;
 }
 
@@ -107,7 +110,48 @@ void validate_id_map(struct PML_Entries * pml)
         }
         addr += PAGE_SIZE;
     }
-    printk("ID map validated\n");
+    // printk("ID map validated\n");
+}
+
+void page_fault_handler(int interrupt_num, uint64_t error_code, void * arg) { 
+    struct PML_Entries * pml_entries = ktable;
+    struct PMLE * pmle;
+    struct PDPE * pdpe;
+    struct PDE * pde;
+    struct PTE * pte;
+
+    uint64_t l4_idx = (error_code >>L4_SHIFT) & VMASK;
+    pmle = &(pml_entries->entries[l4_idx]);
+    if (pmle->P == 0) { 
+        create_new_table(pmle);
+    }
+
+    uint64_t l3_idx = (error_code >> L3_SHIFT) & VMASK;
+    pdpe = (struct PDPE*)((pmle->PDP_Pointer_Base << BASE_ADDRESS_SHIFT) & BASE_ADDRESS_MASK);
+    pdpe += l3_idx;
+    if (pdpe->P == 0) {
+       create_new_table(pdpe);
+    }
+
+    uint64_t l2_idx = (error_code >> L2_SHIFT) & VMASK;
+    pde = (struct PDE*)((pdpe->PDP_Base << BASE_ADDRESS_SHIFT) & BASE_ADDRESS_MASK);
+    pde += l2_idx;
+    if(pde->P == 0) {
+        create_new_table(pde);
+    }
+
+    uint64_t pt_idx = (error_code >> L1_SHIFT) & VMASK;
+    pte = (struct PTE*)((pde->Base_Address << BASE_ADDRESS_SHIFT) & BASE_ADDRESS_MASK);
+    pte += pt_idx;
+    if(pte->AVL == 3) { 
+        printk("allocating on demand\n");
+        create_new_table(pte);
+    } else { 
+        printk("\n\n======\n\npage fault occured from page number: %ll\n\n========\n", error_code);
+        asm volatile("hlt");
+    }
+
+
 }
 
 void * pt_init(struct Region * memory_region) { 
@@ -126,6 +170,7 @@ void * pt_init(struct Region * memory_region) {
         addr += PAGE_SIZE;
     }
     validate_id_map(ktable);
+    IRQ_set_handler(PF, page_fault_handler, NULL);
 }
 
 void enable_paging() { 
@@ -168,12 +213,7 @@ void *MMU_alloc_page() {
     uint64_t pt_idx = (vaddr >> L1_SHIFT) & VMASK;
     pte = (struct PTE*)((pde->Base_Address << BASE_ADDRESS_SHIFT) & BASE_ADDRESS_MASK);
     pte += pt_idx;
-    if(pte->P == 0) { 
-        // printk("allocating a new page in the page table\n");
-        create_new_table(pte);
-        // printk("new table was created at: %ll\n", pte->Base_Address);
-        // printk("new page address is: %ll\n", (pte->Base_Address << BASE_ADDRESS_SHIFT));
-    }
+    pte->AVL = 3;
     heap_vaddr += PAGE_SIZE;
     return (void *)vaddr;
 }
@@ -250,13 +290,13 @@ void test_table() {
     *page2 = 0x2222222222222222;
     uint64_t * page3 = MMU_alloc_page();
     *page3 = 0x3333333333333333;
-    uint64_t casted = (uint64_t)page1;
-    printk("page 1 value: %ll", *page1);
+    printk("page 1 address: %ll and value: %ll\n", (uint64_t)page1, *page1);
+    printk("page 2 address: %ll and value: %ll\n",(uint64_t)page2, *page2);
+    printk("page 3 address: %ll and value: %ll\n",(uint64_t)page3, *page3);
+}
 
-    // uint64_t * page2 = MMU_alloc_page();
-    // (uint64_t)page1;
-    // printk("virtual to physical %ll\n", virtual_to_physical((uint64_t)page1, ktable));
-    // printk("page 1: %ll\n", page1);
-    // printk("page 2: %ll\n", (uint64_t)page2);
-    // virtual_to_physical(KHEAP_START, ktable );
+void test_page_fault() { 
+    printk("testing page fault, going to assign value to current heap addresss + PAGESIZE\n");
+    uint64_t * page = (uint64_t *)(heap_vaddr + PAGE_SIZE);
+    *page = 0xFFFFFFFFFFFFFFFF;
 }

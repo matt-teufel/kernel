@@ -13,23 +13,28 @@ int kmain (uint32_t tag_addr) {
         int loop = 1;
 
         CLI();
-        IRQ_init();
 
-        ps2_init();
-        SER_init(); 
         // printk("entering loop\n");
         // Force a trap (system call) with syscall number 60 (exit)
-        printk("Matthew's Kernel init complete\n");
         // printk("tag address %l\n", tag_addr);
         // while(loop);
         struct Region * physical_regions = process_tag_entries(tag_addr);
         // test_full_allocation();
         // test_basic_alloc_and_free();
         pt_init(physical_regions);
-        printk("page table initialized, going to enable it\n");
+        // printk("page table initialized, going to enable it\n");
         enable_paging();
+                // asm volatile("int $0x0E");
+        IRQ_init();
+
+        ps2_init();
+        SER_init(); 
+
         STI();
+        printk("Matthew's kernel initializaiton complete\n");
         test_table();
+        test_page_fault();
+
         // uint64_t * page1 = MMU_alloc_page();
         // uint64_t * page2 = MMU_alloc_page();
         // uint64_t * page3 = MMU_alloc_page();
@@ -43,7 +48,7 @@ int kmain (uint32_t tag_addr) {
         // printk("printing out a string %s\n", str);
         // long long var = 0x1000;
         // printk("printing long long %ll\n", var);
-        enable_kb();
+        // enable_kb();
         while(1) { 
             asm volatile("hlt");
         }

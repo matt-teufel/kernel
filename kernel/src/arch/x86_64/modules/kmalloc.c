@@ -2,6 +2,7 @@
 #include "pfa.h"
 #include "pt.h"
 #include <stddef.h>
+#include "std.h"
 struct KmallocPool { 
     int max_size;
     int avail;
@@ -52,16 +53,22 @@ void init_pools() {
 
 struct KmallocPool * find_best_pool(size_t size) { 
     if (size <= 32) { 
+        printk("using pool 32\n");
         return &pool32;
     } else if (size <= 64) { 
+        printk("using pool 32\n");
         return &pool64;
     } else if (size <= 128) {
+        printk("using pool 32\n");
         return &pool128;
     } else if (size <= 256) { 
+        printk("using pool 32\n");
         return &pool256;
     } else if (size<=512) { 
+        printk("using pool 32\n");
         return &pool512;
     } else {
+        printk("using pool 32\n");
         return &pool1024;
     }
 }
@@ -69,18 +76,34 @@ struct KmallocPool * find_best_pool(size_t size) {
 void *kmalloc(size_t size) {
     int adjusted_size = size + sizeof(struct KmallocExtra);
     void * return_addr;
+    struct KmallocExtra * extra;
     if (adjusted_size > MAX_POOL_SIZE) { 
-        return MMU_alloc_pages(size / PAGE_SIZE);
+        extra = MMU_alloc_pages(size / PAGE_SIZE);
+        extra->pool = NULL;
+        extra->size = adjusted_size;
+        extra++;
+        return_addr = extra;
     } else { 
         struct KmallocPool *pool = find_best_pool(adjusted_size);
         if (pool->avail > 0) { 
-            return_addr = pool->head;
+            extra = (struct KmallocExtra *)pool->head;
+            extra->pool = pool;
+            extra->size = size;
+            extra++;
+            return_addr = extra;
+
             pool->head = pool->head->next;
             pool->avail--;
         } else { 
             int i;
             uint8_t * frame = MMU_alloc_page();
-            return_addr = frame;
+
+            extra = (struct KmallocExtra *)frame;
+            extra->pool = pool;
+            extra->size = size;
+            extra++;
+            return_addr = extra;
+
             frame += pool->max_size;
             pool->head = (struct FreeList *)frame;
             pool->avail = (PAGE_SIZE / pool->max_size) - 1;
@@ -96,5 +119,18 @@ void *kmalloc(size_t size) {
 }
 // add the header and write the fre func
 void kfree(void * addr) { 
+    struct KmallocExtra * extra = (struct KmallocExtra *)((uint8_t *)addr - sizeof(struct KmallocExtra));
+    if (extra->pool = NULL) { 
+        MMU_free_pages(extra, extra->size/PAGE_SIZE );
+    } else {
+        struct FreeList * l = (struct FreeList *)extra;
+        l->next = extra->pool->head;
+        extra->pool->head = l;
+        extra->pool->avail++;
+    }
+}
+
+
+void test_kmalloc() {
 
 }

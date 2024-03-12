@@ -169,7 +169,7 @@ struct Region * process_tag_entries(uint32_t tag_address)
         tag_header = (struct TagHeaderVar *)tag_header_int;
     }
     validateRegions();
-    printRegions();
+    // printRegions();
     cur_reg = rlh->next;
     return cur_reg;
     //tag type 0 and size 8 is termination of list 

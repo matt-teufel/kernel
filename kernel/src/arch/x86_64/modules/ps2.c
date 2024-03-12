@@ -21,7 +21,7 @@ void ps2_poll_out(void){
     while((status = inb(PS2_STATUS) & PS2_STATUS_INPUT));
 }
 
-void keyboard_input_handler(int interrupt_num, int error_code, void * arg) { 
+void keyboard_input_handler(int interrupt_num, uint64_t error_code, void * arg) { 
     // printk("inside kb input handler\n");
     uint8_t input = read_kb();
     if(input != '\0'){
