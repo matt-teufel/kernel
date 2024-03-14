@@ -6,6 +6,7 @@
 #include "modules/ser.h"
 #include "modules/pfa.h"
 #include "modules/pt.h"
+#include "modules/kmalloc.h"
 
 int kmain (uint32_t tag_addr) { 
     while(1) { 
@@ -33,8 +34,12 @@ int kmain (uint32_t tag_addr) {
         STI();
         printk("Matthew's kernel initializaiton complete\n");
         test_table();
-        test_page_fault();
-
+        // test_page_fault();
+        init_pools();
+        test_kmalloc_simple();
+        test_kmalloc_full();
+        test_free_then_reallocate();
+        test_very_large_allocation();
         // uint64_t * page1 = MMU_alloc_page();
         // uint64_t * page2 = MMU_alloc_page();
         // uint64_t * page3 = MMU_alloc_page();

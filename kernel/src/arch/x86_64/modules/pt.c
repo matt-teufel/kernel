@@ -144,7 +144,7 @@ void page_fault_handler(int interrupt_num, uint64_t error_code, void * arg) {
     pte = (struct PTE*)((pde->Base_Address << BASE_ADDRESS_SHIFT) & BASE_ADDRESS_MASK);
     pte += pt_idx;
     if(pte->AVL == 3) { 
-        printk("allocating on demand\n");
+        // printk("allocating on demand\n");
         create_new_table(pte);
     } else { 
         printk("\n\n======\n\npage fault occured from page number: %ll\n\n========\n", error_code);
